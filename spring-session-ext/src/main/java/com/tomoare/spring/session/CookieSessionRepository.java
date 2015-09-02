@@ -1,4 +1,4 @@
-package com.tomoare.spring.spring.session;
+package com.tomoare.spring.session;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
