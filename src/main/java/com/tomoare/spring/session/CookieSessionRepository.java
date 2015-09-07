@@ -1,16 +1,11 @@
 package com.tomoare.spring.session;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Base64;
+import com.tomoare.spring.session.converter.Base64Converter;
+import com.tomoare.spring.session.converter.Converter;
 import javax.annotation.Nonnull;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.springframework.session.MapSession;
 import org.springframework.session.SessionRepository;
@@ -29,9 +24,23 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
 
     public static final String COOKIE_NAME_PREFIX = "so";
 
-    public static final int SIZE_PER_COOKIE = 3072;
+    public static int SIZE_PER_RECORD = 3072;
 
-    public static final int MAX_COOKIE_COUNT = 10;
+    public static int MAX_RECORD_COUNT = 10;
+
+    private Converter CONVERTER = new Base64Converter();
+
+    public void setConverter(Converter converter) {
+        this.CONVERTER = converter;
+    }
+
+    public void setSizePerRecord(int size) {
+        SIZE_PER_RECORD = size;
+    }
+
+    public void setMaxRecordCount(int count) {
+        MAX_RECORD_COUNT = count;
+    }
 
     @Override
     public MapSession createSession() {
@@ -42,7 +51,7 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
     public void save(MapSession session) {
         HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
 
-        final String sessionObject = convertToString(session);
+        final String sessionObject = CONVERTER.convertToString(session);
         final String sessionId = session.getId();
 
         final StringBuilder valueBuff = new StringBuilder();
@@ -51,7 +60,7 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
 
         for (char ch : chars) {
             valueBuff.append(ch);
-            if (valueBuff.length() >= SIZE_PER_COOKIE) {
+            if (valueBuff.length() >= SIZE_PER_RECORD) {
                 addCookie(response, sessionId, valueBuff, cookieCount);
                 cookieCount++;
             }
@@ -60,7 +69,7 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
             addCookie(response, sessionId, valueBuff, cookieCount);
             cookieCount++;
         }
-        for (int i = cookieCount; i < MAX_COOKIE_COUNT; i++) {
+        for (int i = cookieCount; i < MAX_RECORD_COUNT; i++) {
             CookieGenerator cookie = new CookieGenerator();
             cookie.setCookieName(getCookieName(sessionId, i));
             cookie.setCookieMaxAge(0);
@@ -75,7 +84,7 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
 
         final StringBuilder buff = new StringBuilder();
-        for (int i = 0; i < MAX_COOKIE_COUNT; i++) {
+        for (int i = 0; i < MAX_RECORD_COUNT; i++) {
             final String cookieName = getCookieName(id, i);
             final Cookie cookie = WebUtils.getCookie(request, cookieName);
             if (cookie == null) {
@@ -87,14 +96,14 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
             return null;
         }
 
-        return convertToSession(buff.toString());
+        return CONVERTER.convertToSession(buff.toString());
 
     }
 
     @Override
     public void delete(String id) {
         HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
-        for (int i = 0; i < MAX_COOKIE_COUNT; i++) {
+        for (int i = 0; i < MAX_RECORD_COUNT; i++) {
             CookieGenerator cookie = new CookieGenerator();
             cookie.setCookieName(getCookieName(id, i));
             cookie.setCookieMaxAge(0);
@@ -111,57 +120,9 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
      */
     private String getCookieName(
             @Nonnull final String sessionId,
-            @Nonnull final int number) {
+            @Nonnull final int seq) {
         StringBuilder bul = new StringBuilder(COOKIE_NAME_PREFIX.length() + sessionId.length() + 3);
-        return bul.append(COOKIE_NAME_PREFIX).append("-").append(number).append("-").append(sessionId).toString();
-    }
-
-    /**
-     * convert the session into string.
-     * @param session session object
-     * @return string
-     */
-    public String convertToString(final MapSession session) {
-        if (session == null) {
-            return null;
-        }
-
-        ByteArrayOutputStream byteArrayOutput = null;
-        ObjectOutputStream objectOutput = null;
-        try {
-            byteArrayOutput = new ByteArrayOutputStream();
-            objectOutput = new ObjectOutputStream(byteArrayOutput);
-            objectOutput.writeObject(session);
-            final String sessionStr = new String(Base64.getEncoder().encode(byteArrayOutput.toByteArray()));
-            return sessionStr;
-
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        } finally {
-            IOUtils.closeQuietly(byteArrayOutput);
-            IOUtils.closeQuietly(objectOutput);
-        }
-        return null;
-    }
-
-    /**
-     * convert string into MapSession
-     * @param str 
-     * @return
-     */
-    public MapSession convertToSession(@Nonnull final String str) {
-
-        ObjectInputStream objectInput = null;
-        try {
-            final byte[] data = Base64.getDecoder().decode(str);
-            objectInput = new ObjectInputStream(new ByteArrayInputStream(data));
-            return (MapSession) objectInput.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            logger.error(e.getMessage(), e);
-        } finally {
-            IOUtils.closeQuietly(objectInput);
-        }
-        return null;
+        return bul.append(COOKIE_NAME_PREFIX).append("-").append(seq).append("-").append(sessionId).toString();
     }
 
     /**
@@ -183,7 +144,6 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
 
         CookieGenerator cookie = new CookieGenerator();
         cookie.setCookieName(cookieName);
-
         cookie.addCookie(response, cookieValue);
     }
 }
