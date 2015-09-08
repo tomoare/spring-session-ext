@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.tomoare.spring.session.database;
 
 import com.google.common.collect.Lists;
@@ -22,7 +17,7 @@ import org.springframework.session.SessionRepository;
 
 /**
  *
- * @author yuki.okazaki
+ * @author tomoare
  */
 public class DbSessionRepository implements SessionRepository<MapSession> {
 
