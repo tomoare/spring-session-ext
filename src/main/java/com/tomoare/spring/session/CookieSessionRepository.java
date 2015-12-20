@@ -28,6 +28,8 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
 
     public static int MAX_RECORD_COUNT = 10;
 
+    public static int DEFAULT_AGE = 0;
+
     private Converter CONVERTER = new Base64Converter();
 
     public void setConverter(Converter converter) {
@@ -40,6 +42,10 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
 
     public void setMaxRecordCount(int count) {
         MAX_RECORD_COUNT = count;
+    }
+
+    public void setCookieAge(int second) {
+        DEFAULT_AGE = second;
     }
 
     @Override
@@ -72,7 +78,7 @@ public class CookieSessionRepository implements SessionRepository<MapSession> {
         for (int i = cookieCount; i < MAX_RECORD_COUNT; i++) {
             CookieGenerator cookie = new CookieGenerator();
             cookie.setCookieName(getCookieName(sessionId, i));
-            cookie.setCookieMaxAge(0);
+            cookie.setCookieMaxAge(DEFAULT_AGE);
             cookie.removeCookie(response);
 
         }
